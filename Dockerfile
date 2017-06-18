@@ -6,6 +6,30 @@ ENV DEBUG=false              \
 	DOCKER_GEN_VERSION=0.7.3 \
 	DOCKER_HOST=unix:///var/run/docker.sock
 
+WORKDIR /opt/certbot
+ENV PATH /opt/certbot/venv/bin:$PATH
+RUN export BUILD_DEPS="git \
+                build-base \
+                libffi-dev \
+                linux-headers \
+                py-pip \
+                python-dev" \
+    && apk -U upgrade \
+    && apk add dialog \
+                python \
+                openssl-dev \
+		augeas-libs \
+                ${BUILD_DEPS} \
+    && pip --no-cache-dir install virtualenv \
+    && git clone https://github.com/letsencrypt/letsencrypt /opt/certbot/src \
+    && virtualenv --no-site-packages -p python2 /opt/certbot/venv \
+    && /opt/certbot/venv/bin/pip install \
+        -e /opt/certbot/src/acme \
+        -e /opt/certbot/src \
+        -e /opt/certbot/src/certbot-dns-route53 \ 
+    && apk del ${BUILD_DEPS} \
+    && rm -rf /var/cache/apk/*
+
 RUN apk --update add bash curl ca-certificates procps jq tar && \
 	curl -L -O https://github.com/jwilder/docker-gen/releases/download/$DOCKER_GEN_VERSION/docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz && \
 	tar -C /usr/local/bin -xvzf docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz && \
@@ -14,10 +38,6 @@ RUN apk --update add bash curl ca-certificates procps jq tar && \
 	rm -rf /var/cache/apk/*
 
 WORKDIR /app
-
-# Install simp_le program
-COPY /install_simp_le.sh /app/install_simp_le.sh
-RUN chmod +rx /app/install_simp_le.sh && sync && /app/install_simp_le.sh && rm -f /app/install_simp_le.sh
 
 ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh" ]
 CMD ["/bin/bash", "/app/start.sh" ]
